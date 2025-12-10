@@ -1,4 +1,6 @@
-// main.js
+// js/main.js
+
+console.log("main.js loaded");
 
 // --------------------
 // Imports
@@ -12,12 +14,14 @@ import { Player } from "./entities/Player.js";
 import { ZombieHorde } from "./entities/ZombieHorde.js";
 import { Gate } from "./entities/Gate.js";
 import { Stimpack } from "./entities/Stimpack.js";
-import { WeaponItem } from "./entities/WeaponItem.js";
 import { Particle } from "./entities/Particle.js";
 import { FloatingText } from "./entities/FloatingText.js";
 
+// ✅ 무기 드랍 아이템 + 무기 키 목록을 같은 파일에서
+import { WeaponItem, getWeaponKeys } from "./entities/WeaponItem.js";
+
 // --------------------
-// DOM refs (late bind)
+// DOM refs
 // --------------------
 let scoreEl, squadEl, menuScreen, startBtn, menuSubtitle, buffIndicator, titleEl;
 
@@ -25,7 +29,7 @@ let scoreEl, squadEl, menuScreen, startBtn, menuSubtitle, buffIndicator, titleEl
 let canvas, ctx;
 
 // --------------------
-// HUD helpers
+// HUD
 // --------------------
 function syncHUD() {
     if (scoreEl) scoreEl.innerText = Math.floor(state.score);
@@ -38,7 +42,7 @@ function syncHUD() {
 }
 
 // --------------------
-// Effects helpers
+// Effects
 // --------------------
 function createParticles(x, y, color) {
     for (let i = 0; i < 5; i++) {
@@ -54,7 +58,8 @@ function createFloatingText(text, x, y, color, fontSize = "24px", lifetime = 30)
 // Spawning
 // --------------------
 function spawnWeaponItem() {
-    const type = Math.random() < 0.5 ? "shotgun" : "shuriken";
+    const keys = getWeaponKeys().filter(k => k !== "default");
+    const type = keys[Math.floor(Math.random() * keys.length)];
     state.weaponItems.push(new WeaponItem(type));
 }
 
@@ -93,14 +98,12 @@ function spawnEnemies() {
     state.spawnTimer = 0;
     state.waveCount++;
 
-    // 첫 스폰은 숫자벽
     if (!state.firstSpawnDone) {
         state.gates.push(new Gate());
         state.firstSpawnDone = true;
         return;
     }
 
-    // 12웨이브마다 보스
     if (!state.bossMode && state.waveCount % 12 === 0) {
         state.bossMode = true;
         state.zombies.push(new ZombieHorde(true));
@@ -129,7 +132,6 @@ function spawnEnemies() {
         }, 600);
     }
 
-    // 보스 모드 해제 체크
     if (state.bossMode) {
         const bossExists = state.zombies.some(z => z.isBoss);
         if (!bossExists) state.bossMode = false;
@@ -148,7 +150,6 @@ function update() {
 
     state.player.update();
 
-    // 스팀팩 스폰
     if (
         state.frameCount >= state.nextStimpackFrame &&
         state.stimpacks.length === 0 &&
@@ -158,7 +159,6 @@ function update() {
         state.nextStimpackFrame = Infinity;
     }
 
-    // 무기 아이템 스폰
     if (state.frameCount >= state.nextWeaponItemFrame && state.weaponItems.length === 0) {
         spawnWeaponItem();
         scheduleNextWeaponItem();
@@ -199,6 +199,23 @@ function update() {
                     );
                     createParticles(bullet.x, bullet.y - 10, "#c0392b");
 
+                    // 폭탄 광역
+                    if (bullet.weaponType === "bomb" && bullet.explosionRadius > 0) {
+                        const r = bullet.explosionRadius;
+
+                        for (const z2 of state.zombies) {
+                            if (z2 === zombie) continue;
+                            if (z2.markedForDeletion) continue;
+
+                            const d2 = Math.hypot(z2.x - bullet.x, z2.y - bullet.y);
+                            if (d2 <= r) {
+                                z2.takeDamage(appliedDamage);
+                            }
+                        }
+
+                        bullet.markedForDeletion = true;
+                    }
+
                     if (isDead) {
                         if (!zombie.isBoss) {
                             state.normalZombieKillCount++;
@@ -228,10 +245,12 @@ function update() {
                     bullet.markedForDeletion = true;
                     break;
                 }
+
+                if (bullet.weaponType !== "shuriken") break;
             }
         }
 
-        // gate hit
+        // 숫자벽 증가 규칙 유지
         if (!hitZombie) {
             for (let gate of state.gates) {
                 if (
@@ -253,6 +272,7 @@ function update() {
         }
     });
 
+    // entities update
     state.zombies.forEach(z => z.update());
     state.gates.forEach(g => g.update());
     state.stimpacks.forEach(s => s.update());
@@ -260,6 +280,7 @@ function update() {
     state.particles.forEach(p => p.update());
     state.floatingTexts.forEach(t => t.update());
 
+    // clean arrays
     state.bullets = state.bullets.filter(b => !b.markedForDeletion);
     state.zombies = state.zombies.filter(z => !z.markedForDeletion);
     state.gates = state.gates.filter(g => !g.markedForDeletion);
@@ -286,9 +307,12 @@ function draw() {
     state.stimpacks.forEach(s => s.draw());
     state.weaponItems.forEach(w => w.draw());
     state.zombies.forEach(z => z.draw());
-    state.bullets.forEach(b => b.draw());
+
+    // Bullet.draw(ctx) 형태면 아래 유지
+    state.bullets.forEach(b => b.draw(ctx));
+
     state.particles.forEach(p => p.draw());
-    if (state.player) state.player.draw();
+    if (state.player) state.player.draw(ctx);
     state.floatingTexts.forEach(t => t.draw());
 }
 
@@ -342,10 +366,9 @@ function gameOverUI() {
 }
 
 // --------------------
-// Boot (✅ 지연 로드/즉시 로드 모두 안전)
+// Boot
 // --------------------
-function boot() {
-    // DOM
+window.addEventListener("DOMContentLoaded", () => {
     scoreEl = document.getElementById("score");
     squadEl = document.getElementById("squad");
     menuScreen = document.getElementById("menu-screen");
@@ -354,26 +377,20 @@ function boot() {
     buffIndicator = document.getElementById("buff-indicator");
     titleEl = document.querySelector(".title");
 
-    // Canvas init
     const init = initCanvas("gameCanvas", "game-container");
     canvas = init.canvas;
     ctx = init.ctx;
 
-    // Core init
     initState(ctx);
 
-    // game over handler 1회만
     setGameOverHandler(gameOverUI);
 
-    // input은 player getter로
     initInput(canvas, () => state.player);
 
-    // resize
     window.addEventListener("resize", () => {
         resizeCanvas("game-container");
     });
 
-    // Button
     if (startBtn) {
         startBtn.addEventListener("click", () => {
             try {
@@ -385,13 +402,5 @@ function boot() {
         });
     }
 
-    // 초기 HUD
     syncHUD();
-}
-
-// DOM이 이미 준비된 뒤에도 즉시 boot
-if (document.readyState === "loading") {
-    window.addEventListener("DOMContentLoaded", boot);
-} else {
-    boot();
-}
+});
