@@ -18,7 +18,8 @@ import { Particle } from "./entities/Particle.js";
 import { FloatingText } from "./entities/FloatingText.js";
 
 // ✅ 무기 드랍 아이템 + 무기 키 목록을 같은 파일에서
-import { WeaponItem, getWeaponKeys } from "./entities/WeaponItem.js";
+import { WeaponItem } from "./entities/WeaponItem.js";
+import { getWeaponKeys } from "./logic/weapons.js";
 
 // --------------------
 // DOM refs
