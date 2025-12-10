@@ -1,13 +1,10 @@
 // js/entities/Player.js
 
-import { FPS } from "../core/config.js";
-import { getCanvasSize } from "../core/canvas.js";
-import { input } from "../core/input.js";
 import { state } from "../core/state.js";
+import { getCanvasSize } from "../core/canvas.js";
+import { FPS } from "../core/config.js";
+import { getWeaponDef, getBaseShootIntervalFrames } from "../logic/weapons.js";
 import { Bullet } from "./Bullet.js";
-
-// ✅ 무기 정의를 WeaponItem.js에서 가져온다
-import { getWeaponDef, getBaseShootIntervalFrames } from "./WeaponItem.js";
 
 export class Player {
     constructor() {
@@ -18,6 +15,7 @@ export class Player {
 
         this.x = width / 2;
         this.y = height - 80;
+
         this.targetX = this.x;
 
         this.speed = 0.15;
@@ -26,35 +24,35 @@ export class Player {
         this.squadSize = 1;
 
         this.shootTimer = 0;
-        this.shootInterval = getBaseShootIntervalFrames();
+        this.weaponType = "default";
 
+        // 스팀팩 상태
         this.isStimpackActive = false;
         this.stimpackEndTime = 0;
-
-        this.weaponType = "default";
     }
 
     update() {
         const { width } = getCanvasSize();
 
-        if (input?.left) this.targetX -= this.maxSpeed;
-        if (input?.right) this.targetX += this.maxSpeed;
-
-        const edge = this.width * (1 + Math.min(this.squadSize, 5) * 0.1) / 2;
+        // 입력 모듈이 targetX를 갱신한다고 가정하고
+        // 여기서는 targetX로 부드럽게 이동만 수행
+        const edge = this.width / 2;
         if (this.targetX < edge) this.targetX = edge;
         if (this.targetX > width - edge) this.targetX = width - edge;
 
         this.x += (this.targetX - this.x) * this.speed;
 
+        // 스팀팩 종료
         if (this.isStimpackActive && state.frameCount >= this.stimpackEndTime) {
             this.isStimpackActive = false;
         }
 
+        // 발사 타이머
         this.shootTimer++;
 
-        const weapon = getWeaponDef(this.weaponType);
+        const w = getWeaponDef(this.weaponType);
 
-        let interval = this.shootInterval * (weapon.intervalMul ?? 1.0);
+        let interval = getBaseShootIntervalFrames() * (w.intervalMul ?? 1);
 
         if (this.isStimpackActive) interval /= 2;
 
@@ -65,10 +63,10 @@ export class Player {
     }
 
     shoot() {
-        const weapon = getWeaponDef(this.weaponType);
+        const w = getWeaponDef(this.weaponType);
         const groupId = state.bulletGroupIdCounter++;
 
-        const newBullets = weapon.fire({
+        const newBullets = w.fire({
             player: this,
             Bullet,
             groupId
@@ -81,29 +79,33 @@ export class Player {
 
     activateStimpack() {
         this.isStimpackActive = true;
-        this.stimpackEndTime = state.frameCount + (5 * FPS);
+        this.stimpackEndTime = state.frameCount + 5 * FPS;
     }
 
     setWeapon(type) {
-        this.weaponType = type;
+        this.weaponType = type || "default";
     }
 
-    draw(ctx) {
-        if (!ctx) ctx = state.ctx ?? state.__ctxFallback;
+    draw() {
+        const ctx = state.ctx;
         if (!ctx) return;
 
         ctx.save();
 
-        ctx.fillStyle = "#ffffff";
+        // 간단 병력 표시(원래 스프라이트가 있으면 교체 가능)
+        ctx.fillStyle = "#88ccff";
         ctx.beginPath();
         ctx.arc(this.x, this.y, 14, 0, Math.PI * 2);
         ctx.fill();
 
-        if (this.squadSize > 1) {
-            ctx.fillStyle = "#00d4ff";
+        // 스쿼드 숫자
+        const n = Math.floor(this.squadSize);
+        if (n > 1) {
+            ctx.fillStyle = "#fff";
             ctx.font = "bold 16px sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText(Math.floor(this.squadSize), this.x, this.y - 24);
+            ctx.textBaseline = "middle";
+            ctx.fillText(String(n), this.x, this.y - 30);
         }
 
         ctx.restore();
