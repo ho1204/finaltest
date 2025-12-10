@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Zombie Squad Rush</title>
+
+    <!-- 분리된 CSS -->
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="ui-layer">
+            <div class="header">
+                <div class="score-box">SCORE: <span id="score">0</span></div>
+                <div class="squad-count">SQUAD: <span id="squad">1</span></div>
+            </div>
+            <div id="buff-indicator">RAPID FIRE!</div>
+        </div>
+
+        <div id="menu-screen">
+            <div class="title">ZOMBIE<br />SQUAD</div>
+            <div class="subtitle" id="menu-subtitle">
+                인류 최후의 방어선!<br />
+                군인을 모아 좀비를 물리치세요.
+            </div>
+            <button class="btn" id="start-btn">작전 시작</button>
+            <div class="tutorial">PC: 방향키 / 모바일: 터치 드래그</div>
+        </div>
+    </div>
+
+    <!-- ✅ bootstrap.js 제거, main.js 직결 -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
